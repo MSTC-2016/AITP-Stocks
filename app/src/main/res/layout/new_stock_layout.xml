@@ -25,6 +25,14 @@
                 android:id="@+id/stockSymbolEditText"
                 android:layout_marginLeft="20dp" />
 
+            <Button
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="Lookup"
+                android:id="@+id/lookupButton"
+                android:onClick="lookupStockInfo"
+                android:layout_column="2" />
+
         </TableRow>
 
         <TableRow

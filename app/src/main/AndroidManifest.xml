@@ -25,8 +25,13 @@
                 <action android:name="android.intent.action.MAIN"/>
             </intent-filter>
         </activity>
+        <activity
+            android:name="com.mstc.student.aitpstockideas.StockInfoActivity"
+            android:label="@string/title_activity_stock_info" >
+        </activity>
     </application>
     <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION"></uses-permission>
     <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION"></uses-permission>
+    <uses-permission android:name="android.permission.INTERNET"/>
 
 </manifest>

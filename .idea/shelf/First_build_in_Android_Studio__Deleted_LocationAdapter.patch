@@ -1,0 +1,1733 @@
+Index: app/build.gradle
+IDEA additional info:
+Subsystem: com.intellij.openapi.diff.impl.patch.CharsetEP
+<+>UTF-8
+===================================================================
+--- app/build.gradle	(revision 235d95352a22bb63a463411b24c3b41847f5dff5)
++++ app/build.gradle	(revision )
+@@ -3,6 +3,7 @@
+ android {
+     compileSdkVersion 23
+     buildToolsVersion "23.0.2"
++    useLibrary  'org.apache.http.legacy'
+ 
+     defaultConfig {
+         applicationId "com.mstc.student.aitpstockideas"
+Index: app/src/main/java/com/mstc/student/aitpstockideas/GetStockInfo.java
+IDEA additional info:
+Subsystem: com.intellij.openapi.diff.impl.patch.CharsetEP
+<+>UTF-8
+===================================================================
+--- app/src/main/java/com/mstc/student/aitpstockideas/GetStockInfo.java	(revision )
++++ app/src/main/java/com/mstc/student/aitpstockideas/GetStockInfo.java	(revision )
+@@ -0,0 +1,391 @@
++package com.mstc.student.aitpstockideas;
++
++/**
++ * Created by Ben on 3/15/2016.
++ *
++ */
++import android.os.AsyncTask;
++import android.util.Log;
++
++import org.apache.http.HttpResponse;
++import org.apache.http.client.ClientProtocolException;
++import org.apache.http.client.methods.HttpGet;
++import org.apache.http.impl.client.DefaultHttpClient;
++import org.w3c.dom.Document;
++import org.w3c.dom.Element;
++import org.w3c.dom.NodeList;
++import org.xml.sax.SAXException;
++import org.xmlpull.v1.XmlPullParser;
++import org.xmlpull.v1.XmlPullParserException;
++import org.xmlpull.v1.XmlPullParserFactory;
++
++import java.io.IOException;
++import java.io.InputStream;
++import java.io.InputStreamReader;
++import java.net.HttpURLConnection;
++import java.net.MalformedURLException;
++import java.net.URI;
++import java.net.URISyntaxException;
++import java.net.URL;
++import java.net.URLConnection;
++
++import javax.xml.parsers.DocumentBuilder;
++import javax.xml.parsers.DocumentBuilderFactory;
++import javax.xml.parsers.ParserConfigurationException;
++
++public class GetStockInfo {
++
++
++
++    private static final String TAG = "STOCKQUOTE";
++    // XML node keys
++    static final String KEY_ITEM = "quote"; // parent node
++    static final String KEY_NAME = "Name";
++    static final String KEY_YEAR_LOW = "YearLow";
++    static final String KEY_YEAR_HIGH = "YearHigh";
++    static final String KEY_DAYS_LOW = "DaysLow";
++    static final String KEY_DAYS_HIGH = "DaysHigh";
++    static final String KEY_LAST_TRADE_PRICE = "LastTradePriceOnly";
++    static final String KEY_CHANGE = "Change";
++    static final String KEY_DAYS_RANGE = "DaysRange";
++
++    // XML Data to Retrieve
++    public static String name = "";
++    public static String yearLow = "";
++    public static String yearHigh = "";
++    public static String daysLow = "";
++    public static String daysHigh = "";
++    public static String lastTradePriceOnly = "";
++    public static String change = "";
++    public static String daysRange = "";
++
++    // Used to make the URL to call for XML data
++    public static String yahooURLFirst = "http://query.yahooapis.com/v1/public/yql?q=select%20*%20from%20yahoo.finance.quote%20where%20symbol%20in%20(%22";
++    public static String yahooURLSecond = "%22)&env=store%3A%2F%2Fdatatables.org%2Falltableswithkeys";
++
++    // NEW STUFF
++
++    // Holds values pulled from the XML document using XmlPullParser
++    public static String[][] xmlPullParserArray = {{"AverageDailyVolume", "0"}, {"Change", "0"}, {"DaysLow", "0"},
++            {"DaysHigh", "0"}, {"YearLow", "0"}, {"YearHigh", "0"},
++            {"MarketCapitalization", "0"}, {"LastTradePriceOnly", "0"}, {"DaysRange", "0"},
++            {"Name", "0"}, {"Symbol", "0"}, {"Volume", "0"},
++            {"StockExchange", "0"}};
++
++    public static int parserArrayIncrement = 0;
++
++
++    public static String currentPrice(String symbol){
++        // Create the YQL query
++
++        final String yqlURL = yahooURLFirst + symbol + yahooURLSecond;
++
++        // The Android UI toolkit is not thread safe and must always be
++        // manipulated on the UI thread. This means if I want to perform
++        // any network operations like grabbing xml data, I have to do it
++        // in its own thread. The problem is that you can't write to the
++        // GUI from outside the main activity. AsyncTask solves those problems
++
++        new MyAsyncTask().execute(yqlURL);
++
++        return lastTradePriceOnly;
++    }
++
++    private static class MyAsyncTask extends AsyncTask<String, String, String>{
++
++        // String... arg0 is the same as String[] args
++        protected String doInBackground(String... args) {
++
++            try {
++
++                // Get the XML URL that was passed in
++
++                URL url = new URL(args[0]);
++
++                // connection is the communications link between the
++                // application and a URL that we will read from.
++
++                URLConnection connection;
++                connection = url.openConnection();
++
++                // Used to take advantage of HTTP specific features.
++                // Provides tools that tell us if a connection was
++                // made, lost and other HTTP Status Codes
++
++                HttpURLConnection httpConnection = (HttpURLConnection)connection;
++
++                // Did we connect properly the the URL?
++
++                int responseCode = httpConnection.getResponseCode();
++
++
++                // Tests if responseCode == 200 Good Connection
++                if (responseCode == HttpURLConnection.HTTP_OK) {
++
++                    // Reads data from the connection
++                    InputStream in = httpConnection.getInputStream();
++
++                    // Provides a way to parse DOM object trees from XML documents
++
++                    DocumentBuilderFactory dbf = DocumentBuilderFactory.newInstance();
++
++                    // Provides a DOM Document from an xml page
++                    DocumentBuilder db = dbf.newDocumentBuilder();
++
++                    // Parse the Yahoo Financial YQL Stock XML File
++                    Document dom = db.parse(in);
++
++                    // The root element is query
++                    Element docEle = dom.getDocumentElement();
++
++                    // Get a list of quote nodes
++                    NodeList nl = docEle.getElementsByTagName("quote");
++
++
++                    // Checks to make sure we found a quote tag
++                    if (nl != null && nl.getLength() > 0) {
++
++                        // Cycles through if we find multiple quote tags
++                        // Mainly used for demonstration purposes
++                        for (int i = 0 ; i < nl.getLength(); i++) {
++
++                            // Passes the root element of the XML page, so
++                            // that the function below can search for the
++                            // information needed
++                            StockInfo theStock = getStockInformation(docEle);
++
++                            // Gets the values stored in the StockInfo object
++                            daysLow = theStock.getDaysLow();
++                            daysHigh = theStock.getDaysHigh();
++                            yearLow = theStock.getYearLow();
++                            yearHigh = theStock.getYearHigh();
++                            name = theStock.getName();
++                            lastTradePriceOnly = theStock.getLastTradePriceOnly();
++                            change = theStock.getChange();
++                            daysRange = theStock.getDaysRange();
++
++                            // Outputs information for tracking reasons only
++                            // Log.d(TAG, "Stock Name " + name);
++                            // Log.d(TAG, "Stock Year High " + yearHigh);
++                            // Log.d(TAG, "Stock Year Low " + yearLow);
++                            // Log.d(TAG, "Stock Days High " + daysHigh);
++                            // Log.d(TAG, "Stock Days Low " + daysLow);
++
++
++                        }
++                    }
++                }
++            } catch (MalformedURLException e) {
++                Log.d(TAG, "MalformedURLException", e);
++            } catch (IOException e) {
++                Log.d(TAG, "IOException", e);
++            } catch (ParserConfigurationException e) {
++                Log.d(TAG, "Parser Configuration Exception", e);
++            } catch (SAXException e) {
++                Log.d(TAG, "SAX Exception", e);
++            }
++            finally {
++            }
++
++            // NEW STUFF
++
++            try{
++
++                Log.d("test","In XmlPullParser");
++
++                // It is recommended to use the XmlPullParser because
++                // it is faster and requires less memory then the DOM API
++
++                // XmlPullParserFactory provides you with the ability to
++                // create pull parsers that parse XML documents
++
++                XmlPullParserFactory factory = XmlPullParserFactory.newInstance();
++
++                // Parser supports XML namespaces
++                factory.setNamespaceAware(true);
++
++                // Provides the methods needed to parse XML documents
++                XmlPullParser parser = factory.newPullParser();
++
++                // InputStreamReader converts bytes of data into a stream
++                // of characters
++
++                parser.setInput(new InputStreamReader(getUrlData(args[0])));
++
++                // Passes the parser and the first tag in the XML document
++                // for processing
++
++                beginDocument(parser,"query");
++
++                // Get the currently targeted event type, which starts
++                // as START_DOCUMENT
++
++                int eventType = parser.getEventType();
++
++                do{
++
++                    // Cycles through elements in the XML document while
++                    // neither a start or end tag are found
++
++                    nextElement(parser);
++
++                    // Switch to the next element
++
++                    parser.next();
++
++                    // Get the current event type
++
++                    eventType = parser.getEventType();
++
++                    // Check if a value was found between 2 tags
++
++                    if(eventType == XmlPullParser.TEXT){
++
++                        // Get the text from between the tags
++
++                        String valueFromXML = parser.getText();
++
++                        // Store it in an array with the corresponding tag
++                        // value
++
++                        xmlPullParserArray[parserArrayIncrement][1] = valueFromXML;
++
++                        Log.d("test", "Values: " + xmlPullParserArray[parserArrayIncrement++][1]);
++
++                    }
++
++                } while (eventType != XmlPullParser.END_DOCUMENT) ;
++
++            }
++
++            catch (ClientProtocolException e) {
++                // TODO Auto-generated catch block
++                e.printStackTrace();
++            } catch (XmlPullParserException e) {
++                // TODO Auto-generated catch block
++                e.printStackTrace();
++            } catch (URISyntaxException e) {
++                // TODO Auto-generated catch block
++                e.printStackTrace();
++            } catch (IOException e) {
++                // TODO Auto-generated catch block
++                e.printStackTrace();
++            }
++
++            finally {
++            }
++
++            // Print out the tags and associated values that
++            // were found
++
++            for(int i = 0; i < xmlPullParserArray.length; i++){
++
++                Log.d("test", xmlPullParserArray[i][0] + ":" + xmlPullParserArray[i][1]);
++
++            }
++
++            // END OF NEW STUFF
++
++            return null;
++        }
++
++        // NEW STUFF
++
++        public InputStream getUrlData(String url) throws URISyntaxException,
++                ClientProtocolException, IOException {
++
++            // Used to get access to HTTP resources
++
++            DefaultHttpClient client = new DefaultHttpClient();
++
++            // Retrieves information from the URL
++
++            HttpGet method = new HttpGet(new URI(url));
++
++            // Gets a response from the client on whether the
++            // connection is stable
++
++            HttpResponse res = client.execute(method);
++
++            // An HTTPEntity may be returned using getEntity() which tells
++            // the system where the content is coming from
++
++            return res.getEntity().getContent();
++        }
++
++        public final void beginDocument(XmlPullParser parser, String firstElementName) throws XmlPullParserException, IOException
++        {
++            int type;
++
++            // next() advances to the next element in the XML
++            // document being a starting or ending tag, or a value
++            // or the END_DOCUMENT
++
++            while ((type=parser.next()) != parser.START_TAG
++                    && type != parser.END_DOCUMENT) {
++                ;
++            }
++
++            // Throw an error if a start tag isn't found
++
++            if (type != parser.START_TAG) {
++                throw new XmlPullParserException("No start tag found");
++            }
++
++            // Verify that the tag passed in is the first tag in the XML
++            // document
++
++            if (!parser.getName().equals(firstElementName)) {
++                throw new XmlPullParserException("Unexpected start tag: found " + parser.getName() +
++                        ", expected " + firstElementName);
++            }
++        }
++
++        public final void nextElement(XmlPullParser parser) throws XmlPullParserException, IOException
++        {
++            int type;
++
++            // Cycles through elements in the XML document while
++            // neither a start or end tag are found
++
++            while ((type=parser.next()) != parser.START_TAG
++                    && type != parser.END_DOCUMENT) {
++                ;
++            }
++        }
++        private StockInfo getStockInformation(Element entry){
++
++            String stockName = getTextValue(entry, "Name");
++            String stockYearLow = getTextValue(entry, "YearLow");
++            String stockYearHigh = getTextValue(entry, "YearHigh");
++            String stockDaysLow = getTextValue(entry, "DaysLow");
++            String stockDaysHigh = getTextValue(entry, "DaysHigh");
++            String stocklastTradePriceOnlyTextView = getTextValue(entry, "LastTradePriceOnly");
++            String stockChange = getTextValue(entry, "Change");
++            String stockDaysRange = getTextValue(entry, "DaysRange");
++
++            StockInfo theStock = new StockInfo(stockDaysLow, stockDaysHigh, stockYearLow,
++                    stockYearHigh, stockName, stocklastTradePriceOnlyTextView,
++                    stockChange, stockDaysRange);
++
++            return theStock;
++
++        }
++        private String getTextValue(Element entry, String tagName){
++
++            String tagValueToReturn = null;
++
++            NodeList nl = entry.getElementsByTagName(tagName);
++
++            if(nl != null && nl.getLength() > 0){
++
++                Element element = (Element) nl.item(0);
++
++                tagValueToReturn = element.getFirstChild().getNodeValue();
++            }
++
++            return tagValueToReturn;
++
++        }
++
++}}
+Index: app/src/main/res/values/strings.xml
+IDEA additional info:
+Subsystem: com.intellij.openapi.diff.impl.patch.CharsetEP
+<+>UTF-8
+===================================================================
+--- app/src/main/res/values/strings.xml	(revision 235d95352a22bb63a463411b24c3b41847f5dff5)
++++ app/src/main/res/values/strings.xml	(revision )
+@@ -1,4 +1,27 @@
+ <resources>
+     <string name="app_name">AITP Stock Ideas</string>
++
+     <string name="action_settings">Settings</string>
++    <string name="stock_symbol">Enter Symbol</string>
++    <string name="enter_stock_symbol">Enter</string>
++    <string name="stock_symbol_list">Stock Symbols and Quotes</string>
++    <string name="change_stock_symbol">Change</string>
++    <string name="ok">OK</string>
++    <string name="cancel">Cancel</string>
++    <string name="missing_stock_symbol">Enter a Stock Symbol</string>
++    <string name="invalid_stock_symbol">Invalid Stock Symbol</string>
++    <string name="delete_all_symbols">Delete All Symbols</string>
++    <string name="confirm_action">Are You Sure?</string>
++    <string name="get_stock_quote">Quote</string>
++    <string name="go_to_website">Web</string>
++    <string name="yahoo_stock_url">http://finance.yahoo.com/q?s=</string>
++    <string name="stock_company_name">Company Name</string>
++    <string name="stock_year_low">Year Low:</string>
++    <string name="stock_year_high">Year High:</string>
++    <string name="stock_days_low">Days Low:</string>
++    <string name="stock_days_high">Days High:</string>
++    <string name="title_activity_stock_info">StockInfoActivity</string>
++    <string name="last_trade_price_only">Last Price:</string>
++    <string name="change">Change:</string>
++    <string name="days_range">Daily Price Range:</string>
+ </resources>
+Index: app/app.iml
+IDEA additional info:
+Subsystem: com.intellij.openapi.diff.impl.patch.CharsetEP
+<+>UTF-8
+===================================================================
+--- app/app.iml	(revision 235d95352a22bb63a463411b24c3b41847f5dff5)
++++ app/app.iml	(revision )
+@@ -90,5 +90,6 @@
+     <orderEntry type="library" exported="" name="support-annotations-23.1.1" level="project" />
+     <orderEntry type="library" exported="" name="appcompat-v7-23.1.1" level="project" />
+     <orderEntry type="library" exported="" name="design-23.1.1" level="project" />
++    <orderEntry type="library" exported="" name="org.apache.http.legacy-android-23" level="project" />
+   </component>
+ </module>
+\ No newline at end of file
+Index: app/src/main/java/com/mstc/student/aitpstockideas/NewStock.java
+IDEA additional info:
+Subsystem: com.intellij.openapi.diff.impl.patch.CharsetEP
+<+>UTF-8
+===================================================================
+--- app/src/main/java/com/mstc/student/aitpstockideas/NewStock.java	(revision 235d95352a22bb63a463411b24c3b41847f5dff5)
++++ app/src/main/java/com/mstc/student/aitpstockideas/NewStock.java	(revision )
+@@ -7,9 +7,12 @@
+ import android.content.pm.PackageManager;
+ import android.location.Criteria;
+ import android.location.LocationListener;
++import android.os.AsyncTask;
+ import android.os.Bundle;
+ import android.support.v4.app.ActivityCompat;
++import android.util.Log;
+ import android.view.View;
++import android.view.inputmethod.InputMethodManager;
+ import android.widget.Button;
+ import android.widget.EditText;
+ import android.widget.TextView;
+@@ -18,13 +21,67 @@
+ import android.widget.Toast;
+ 
+ 
++import org.apache.http.HttpResponse;
++import org.apache.http.client.ClientProtocolException;
++import org.apache.http.client.methods.HttpGet;
++import org.apache.http.impl.client.DefaultHttpClient;
++import org.w3c.dom.Document;
++import org.w3c.dom.Element;
++import org.w3c.dom.NodeList;
++import org.xml.sax.SAXException;
++import org.xmlpull.v1.XmlPullParser;
++import org.xmlpull.v1.XmlPullParserException;
++import org.xmlpull.v1.XmlPullParserFactory;
++
++import java.io.IOException;
++import java.io.InputStream;
++import java.io.InputStreamReader;
++import java.net.HttpURLConnection;
++import java.net.MalformedURLException;
++import java.net.URI;
++import java.net.URISyntaxException;
++import java.net.URL;
++import java.net.URLConnection;
+ import java.text.SimpleDateFormat;
+ import java.util.Calendar;
+ 
++import javax.xml.parsers.DocumentBuilder;
++import javax.xml.parsers.DocumentBuilderFactory;
++import javax.xml.parsers.ParserConfigurationException;
++
+ /**
+  * Created by Ben on 3/14/2016.
+  */
+ public class NewStock extends Activity {
++    private static final String TAG = "STOCKQUOTE";
++    // XML node keys
++    static final String KEY_ITEM = "quote"; // parent node
++    static final String KEY_NAME = "Name";
++    static final String KEY_YEAR_LOW = "YearLow";
++    static final String KEY_YEAR_HIGH = "YearHigh";
++    static final String KEY_DAYS_LOW = "DaysLow";
++    static final String KEY_DAYS_HIGH = "DaysHigh";
++    static final String KEY_LAST_TRADE_PRICE = "LastTradePriceOnly";
++    static final String KEY_CHANGE = "Change";
++    static final String KEY_DAYS_RANGE = "DaysRange";
++
++    // XML Data to Retrieve
++    String name = "";
++    String yearLow = "";
++    String yearHigh = "";
++    String daysLow = "";
++    String daysHigh = "";
++    String lastTradePriceOnly = "";
++    String change = "";
++    String daysRange = "";
++
++    // Used to make the URL to call for XML data
++    String yahooURLFirst = "http://query.yahooapis.com/v1/public/yql?q=select%20*%20from%20yahoo.finance.quote%20where%20symbol%20in%20(%22";
++    String yahooURLSecond = "%22)&env=store%3A%2F%2Fdatatables.org%2Falltableswithkeys";
++
++
++
++
+     private LocationManager locationManager;
+     private String provider;
+     String gpsLocation;
+@@ -33,7 +90,7 @@
+     double startingPrice;
+     TextView longitudeTV, latitudeTV, currentDateTV, startingPriceTV, currentTimeTV;
+     EditText stockSymbolET;
+-    Button backButton, addStockButton;
++    Button backButton, addStockButton, getStockButton;
+ 
+     @Override
+     protected void onCreate(Bundle savedInstanceState) {
+@@ -49,6 +106,7 @@
+         stockSymbolET = (EditText) findViewById(R.id.stockSymbolEditText);
+         backButton = (Button) findViewById(R.id.backButton);
+         addStockButton = (Button) findViewById(R.id.addStockButton);
++        getStockButton = (Button) findViewById(R.id.getStock);
+ 
+         latitudeTV.setText("");
+         longitudeTV.setText("");
+@@ -98,14 +156,376 @@
+         currentDateTV.setText(currentDateFormated);
+ 
+     }
++    public void getStockButtonListener(View view) {
+ 
+ 
++            stockSymbol = stockSymbolET.getText().toString();
++            String currentPrice;
++        currentPrice = GetStockInfo.currentPrice(stockSymbol);
+ 
++        if(stockSymbolET.getText().length() > 0){
+ 
++                stockSymbolET.setText(currentPrice); // Clear EditText box
+ 
++                // Force the keyboard to close
++                InputMethodManager imm = (InputMethodManager)getSystemService(
++                        Context.INPUT_METHOD_SERVICE);
++                imm.hideSoftInputFromWindow(stockSymbolET.getWindowToken(), 0);
++            } else {
+ 
++                // Create an alert dialog box
++                AlertDialog.Builder builder = new AlertDialog.Builder(NewStock.this);
+ 
++                // Set alert title
++                builder.setTitle(R.string.invalid_stock_symbol);
++
++                // Set the value for the positive reaction from the user
++                // You can also set a listener to call when it is pressed
++                builder.setPositiveButton(R.string.ok, null);
++
++                // The message
++                builder.setMessage(R.string.missing_stock_symbol);
++
++                // Create the alert dialog and display it
++                AlertDialog theAlertDialog = builder.create();
++                theAlertDialog.show();
++
++            }
++            startingPriceTV.setText("");
++
++        }
++
++
++
++
+     public void backButtonClicked(View view) {
+         finish();
+     }
++
++
++
++
++        // NEW STUFF
++
++        // Holds values pulled from the XML document using XmlPullParser
++        public String[][] xmlPullParserArray = {{"AverageDailyVolume", "0"}, {"Change", "0"}, {"DaysLow", "0"},
++                {"DaysHigh", "0"}, {"YearLow", "0"}, {"YearHigh", "0"},
++                {"MarketCapitalization", "0"}, {"LastTradePriceOnly", "0"}, {"DaysRange", "0"},
++                {"Name", "0"}, {"Symbol", "0"}, {"Volume", "0"},
++                {"StockExchange", "0"}};
++
++        public int parserArrayIncrement = 0;
++
++
++        public String currentPrice(String symbol) {
++            // Create the YQL query
++
++            final String yqlURL = yahooURLFirst + symbol + yahooURLSecond;
++
++            // The Android UI toolkit is not thread safe and must always be
++            // manipulated on the UI thread. This means if I want to perform
++            // any network operations like grabbing xml data, I have to do it
++            // in its own thread. The problem is that you can't write to the
++            // GUI from outside the main activity. AsyncTask solves those problems
++
++            new MyAsyncTask().execute(yqlURL);
++
++            return lastTradePriceOnly;
++        }
++
++        private class MyAsyncTask extends AsyncTask<String, String, String> {
++
++            // String... arg0 is the same as String[] args
++            protected String doInBackground(String... args) {
++
++                try {
++
++                    // Get the XML URL that was passed in
++
++                    URL url = new URL(args[0]);
++
++                    // connection is the communications link between the
++                    // application and a URL that we will read from.
++
++                    URLConnection connection;
++                    connection = url.openConnection();
++
++                    // Used to take advantage of HTTP specific features.
++                    // Provides tools that tell us if a connection was
++                    // made, lost and other HTTP Status Codes
++
++                    HttpURLConnection httpConnection = (HttpURLConnection) connection;
++
++                    // Did we connect properly the the URL?
++
++                    int responseCode = httpConnection.getResponseCode();
++
++
++                    // Tests if responseCode == 200 Good Connection
++                    if (responseCode == HttpURLConnection.HTTP_OK) {
++
++                        // Reads data from the connection
++                        InputStream in = httpConnection.getInputStream();
++
++                        // Provides a way to parse DOM object trees from XML documents
++
++                        DocumentBuilderFactory dbf = DocumentBuilderFactory.newInstance();
++
++                        // Provides a DOM Document from an xml page
++                        DocumentBuilder db = dbf.newDocumentBuilder();
++
++                        // Parse the Yahoo Financial YQL Stock XML File
++                        Document dom = db.parse(in);
++
++                        // The root element is query
++                        Element docEle = dom.getDocumentElement();
++
++                        // Get a list of quote nodes
++                        NodeList nl = docEle.getElementsByTagName("quote");
++
++
++                        // Checks to make sure we found a quote tag
++                        if (nl != null && nl.getLength() > 0) {
++
++                            // Cycles through if we find multiple quote tags
++                            // Mainly used for demonstration purposes
++                            for (int i = 0; i < nl.getLength(); i++) {
++
++                                // Passes the root element of the XML page, so
++                                // that the function below can search for the
++                                // information needed
++                                StockInfo theStock = getStockInformation(docEle);
++
++                                // Gets the values stored in the StockInfo object
++                                daysLow = theStock.getDaysLow();
++                                daysHigh = theStock.getDaysHigh();
++                                yearLow = theStock.getYearLow();
++                                yearHigh = theStock.getYearHigh();
++                                name = theStock.getName();
++                                lastTradePriceOnly = theStock.getLastTradePriceOnly();
++                                change = theStock.getChange();
++                                daysRange = theStock.getDaysRange();
++
++                                // Outputs information for tracking reasons only
++                                // Log.d(TAG, "Stock Name " + name);
++                                // Log.d(TAG, "Stock Year High " + yearHigh);
++                                // Log.d(TAG, "Stock Year Low " + yearLow);
++                                // Log.d(TAG, "Stock Days High " + daysHigh);
++                                // Log.d(TAG, "Stock Days Low " + daysLow);
++
++
++                            }
++                        }
++                    }
++                } catch (MalformedURLException e) {
++                    Log.d(TAG, "MalformedURLException", e);
++                } catch (IOException e) {
++                    Log.d(TAG, "IOException", e);
++                } catch (ParserConfigurationException e) {
++                    Log.d(TAG, "Parser Configuration Exception", e);
++                } catch (SAXException e) {
++                    Log.d(TAG, "SAX Exception", e);
++                } finally {
++                }
++
++                // NEW STUFF
++
++                try {
++
++                    Log.d("test", "In XmlPullParser");
++
++                    // It is recommended to use the XmlPullParser because
++                    // it is faster and requires less memory then the DOM API
++
++                    // XmlPullParserFactory provides you with the ability to
++                    // create pull parsers that parse XML documents
++
++                    XmlPullParserFactory factory = XmlPullParserFactory.newInstance();
++
++                    // Parser supports XML namespaces
++                    factory.setNamespaceAware(true);
++
++                    // Provides the methods needed to parse XML documents
++                    XmlPullParser parser = factory.newPullParser();
++
++                    // InputStreamReader converts bytes of data into a stream
++                    // of characters
++
++                    parser.setInput(new InputStreamReader(getUrlData(args[0])));
++
++                    // Passes the parser and the first tag in the XML document
++                    // for processing
++
++                    beginDocument(parser, "query");
++
++                    // Get the currently targeted event type, which starts
++                    // as START_DOCUMENT
++
++                    int eventType = parser.getEventType();
++
++                    do {
++
++                        // Cycles through elements in the XML document while
++                        // neither a start or end tag are found
++
++                        nextElement(parser);
++
++                        // Switch to the next element
++
++                        parser.next();
++
++                        // Get the current event type
++
++                        eventType = parser.getEventType();
++
++                        // Check if a value was found between 2 tags
++
++                        if (eventType == XmlPullParser.TEXT) {
++
++                            // Get the text from between the tags
++
++                            String valueFromXML = parser.getText();
++
++                            // Store it in an array with the corresponding tag
++                            // value
++
++                            xmlPullParserArray[parserArrayIncrement][1] = valueFromXML;
++
++                            Log.d("test", "Values: " + xmlPullParserArray[parserArrayIncrement++][1]);
++
++                        }
++
++                    } while (eventType != XmlPullParser.END_DOCUMENT);
++
++                } catch (ClientProtocolException e) {
++                    // TODO Auto-generated catch block
++                    e.printStackTrace();
++                } catch (XmlPullParserException e) {
++                    // TODO Auto-generated catch block
++                    e.printStackTrace();
++                } catch (URISyntaxException e) {
++                    // TODO Auto-generated catch block
++                    e.printStackTrace();
++                } catch (IOException e) {
++                    // TODO Auto-generated catch block
++                    e.printStackTrace();
++                } finally {
++                }
++
++                // Print out the tags and associated values that
++                // were found
++
++                for (int i = 0; i < xmlPullParserArray.length; i++) {
++
++                    Log.d("test", xmlPullParserArray[i][0] + ":" + xmlPullParserArray[i][1]);
++
++                }
++
++                // END OF NEW STUFF
++
++                return null;
++            }
++
++            // NEW STUFF
++
++            public InputStream getUrlData(String url) throws URISyntaxException,
++                    ClientProtocolException, IOException {
++
++                // Used to get access to HTTP resources
++
++                DefaultHttpClient client = new DefaultHttpClient();
++
++                // Retrieves information from the URL
++
++                HttpGet method = new HttpGet(new URI(url));
++
++                // Gets a response from the client on whether the
++                // connection is stable
++
++                HttpResponse res = client.execute(method);
++
++                // An HTTPEntity may be returned using getEntity() which tells
++                // the system where the content is coming from
++
++                return res.getEntity().getContent();
++            }
++
++            public final void beginDocument(XmlPullParser parser, String firstElementName) throws XmlPullParserException, IOException {
++                int type;
++
++                // next() advances to the next element in the XML
++                // document being a starting or ending tag, or a value
++                // or the END_DOCUMENT
++
++                while ((type = parser.next()) != parser.START_TAG
++                        && type != parser.END_DOCUMENT) {
++                    ;
++                }
++
++                // Throw an error if a start tag isn't found
++
++                if (type != parser.START_TAG) {
++                    throw new XmlPullParserException("No start tag found");
++                }
++
++                // Verify that the tag passed in is the first tag in the XML
++                // document
++
++                if (!parser.getName().equals(firstElementName)) {
++                    throw new XmlPullParserException("Unexpected start tag: found " + parser.getName() +
++                            ", expected " + firstElementName);
++                }
++            }
++
++            public final void nextElement(XmlPullParser parser) throws XmlPullParserException, IOException {
++                int type;
++
++                // Cycles through elements in the XML document while
++                // neither a start or end tag are found
++
++                while ((type = parser.next()) != parser.START_TAG
++                        && type != parser.END_DOCUMENT) {
++                    ;
++                }
++            }
++
++            private StockInfo getStockInformation(Element entry) {
++
++                String stockName = getTextValue(entry, "Name");
++                String stockYearLow = getTextValue(entry, "YearLow");
++                String stockYearHigh = getTextValue(entry, "YearHigh");
++                String stockDaysLow = getTextValue(entry, "DaysLow");
++                String stockDaysHigh = getTextValue(entry, "DaysHigh");
++                String stocklastTradePriceOnlyTextView = getTextValue(entry, "LastTradePriceOnly");
++                String stockChange = getTextValue(entry, "Change");
++                String stockDaysRange = getTextValue(entry, "DaysRange");
++
++                StockInfo theStock = new StockInfo(stockDaysLow, stockDaysHigh, stockYearLow,
++                        stockYearHigh, stockName, stocklastTradePriceOnlyTextView,
++                        stockChange, stockDaysRange);
++
++                return theStock;
++
++            }
++
++            private String getTextValue(Element entry, String tagName) {
++
++                String tagValueToReturn = null;
++
++                NodeList nl = entry.getElementsByTagName(tagName);
++
++                if (nl != null && nl.getLength() > 0) {
++
++                    Element element = (Element) nl.item(0);
++
++                    tagValueToReturn = element.getFirstChild().getNodeValue();
++                }
++
++                return tagValueToReturn;
++
++            }
++
++
++        }
++
+ }
+Index: .idea/misc.xml
+IDEA additional info:
+Subsystem: com.intellij.openapi.diff.impl.patch.CharsetEP
+<+>UTF-8
+===================================================================
+--- .idea/misc.xml	(revision 235d95352a22bb63a463411b24c3b41847f5dff5)
++++ .idea/misc.xml	(revision )
+@@ -1,5 +1,32 @@
+ <?xml version="1.0" encoding="UTF-8"?>
+ <project version="4">
++  <component name="EntryPointsManager">
++    <entry_points version="2.0" />
++  </component>
++  <component name="NullableNotNullManager">
++    <option name="myDefaultNullable" value="android.support.annotation.Nullable" />
++    <option name="myDefaultNotNull" value="android.support.annotation.NonNull" />
++    <option name="myNullables">
++      <value>
++        <list size="4">
++          <item index="0" class="java.lang.String" itemvalue="org.jetbrains.annotations.Nullable" />
++          <item index="1" class="java.lang.String" itemvalue="javax.annotation.Nullable" />
++          <item index="2" class="java.lang.String" itemvalue="edu.umd.cs.findbugs.annotations.Nullable" />
++          <item index="3" class="java.lang.String" itemvalue="android.support.annotation.Nullable" />
++        </list>
++      </value>
++    </option>
++    <option name="myNotNulls">
++      <value>
++        <list size="4">
++          <item index="0" class="java.lang.String" itemvalue="org.jetbrains.annotations.NotNull" />
++          <item index="1" class="java.lang.String" itemvalue="javax.annotation.Nonnull" />
++          <item index="2" class="java.lang.String" itemvalue="edu.umd.cs.findbugs.annotations.NonNull" />
++          <item index="3" class="java.lang.String" itemvalue="android.support.annotation.NonNull" />
++        </list>
++      </value>
++    </option>
++  </component>
+   <component name="ProjectLevelVcsManager" settingsEditedManually="false">
+     <OptionsSetting value="true" id="Add" />
+     <OptionsSetting value="true" id="Remove" />
+\ No newline at end of file
+Index: .idea/libraries/org_apache_http_legacy_android_23.xml
+IDEA additional info:
+Subsystem: com.intellij.openapi.diff.impl.patch.CharsetEP
+<+>UTF-8
+===================================================================
+--- .idea/libraries/org_apache_http_legacy_android_23.xml	(revision )
++++ .idea/libraries/org_apache_http_legacy_android_23.xml	(revision )
+@@ -0,0 +1,9 @@
++<component name="libraryTable">
++  <library name="org.apache.http.legacy-android-23">
++    <CLASSES>
++      <root url="jar://$USER_HOME$/AppData/Local/Android/sdk/platforms/android-23/optional/org.apache.http.legacy.jar!/" />
++    </CLASSES>
++    <JAVADOC />
++    <SOURCES />
++  </library>
++</component>
+\ No newline at end of file
+Index: app/src/main/AndroidManifest.xml
+IDEA additional info:
+Subsystem: com.intellij.openapi.diff.impl.patch.CharsetEP
+<+>UTF-8
+===================================================================
+--- app/src/main/AndroidManifest.xml	(revision 235d95352a22bb63a463411b24c3b41847f5dff5)
++++ app/src/main/AndroidManifest.xml	(revision )
+@@ -2,6 +2,7 @@
+ <manifest xmlns:android="http://schemas.android.com/apk/res/android"
+     package="com.mstc.student.aitpstockideas">
+ 
++
+     <application
+         android:allowBackup="true"
+         android:icon="@mipmap/ic_launcher"
+Index: app/src/main/res/layout/new_stock_layout.xml
+IDEA additional info:
+Subsystem: com.intellij.openapi.diff.impl.patch.CharsetEP
+<+>UTF-8
+===================================================================
+--- app/src/main/res/layout/new_stock_layout.xml	(revision 235d95352a22bb63a463411b24c3b41847f5dff5)
++++ app/src/main/res/layout/new_stock_layout.xml	(revision )
+@@ -25,6 +25,15 @@
+                 android:id="@+id/stockSymbolEditText"
+                 android:layout_marginLeft="20dp" />
+ 
++            <Button
++                android:layout_width="wrap_content"
++                android:layout_height="wrap_content"
++                android:text="Get Stock"
++                android:id="@+id/getStock"
++                android:layout_column="2"
++                android:layout_marginLeft="10dp"
++                android:onClick="getStockButtonListener"/>
++
+         </TableRow>
+ 
+         <TableRow
+\ No newline at end of file
+Index: app/src/main/java/com/mstc/student/aitpstockideas/StockInfo.java
+IDEA additional info:
+Subsystem: com.intellij.openapi.diff.impl.patch.CharsetEP
+<+>UTF-8
+===================================================================
+--- app/src/main/java/com/mstc/student/aitpstockideas/StockInfo.java	(revision )
++++ app/src/main/java/com/mstc/student/aitpstockideas/StockInfo.java	(revision )
+@@ -0,0 +1,42 @@
++package com.mstc.student.aitpstockideas;
++
++/**
++ * Created by Ben on 3/15/2016.
++ */
++public class StockInfo {
++
++    private String daysLow = "";
++    private String daysHigh = "";
++    private String yearLow = "";
++    private String yearHigh = "";
++    private String name = "";
++    private String lastTradePriceOnly = "";
++    private String change = "";
++    private String daysRange = "";
++
++    public String getDaysLow() { return daysLow; }
++    public String getDaysHigh() { return daysHigh; }
++    public String getYearLow() { return yearLow; }
++    public String getYearHigh() { return yearHigh; }
++    public String getName() { return name; }
++
++    public String getLastTradePriceOnly() { return lastTradePriceOnly; }
++    public String getChange() { return change;}
++    public String getDaysRange() {return daysRange;}
++
++
++    public StockInfo(String daysLow, String daysHigh, String yearLow,
++                     String yearHigh, String name, String lastTradePriceOnly,
++                     String change, String daysRange) {
++        this.daysLow = daysLow;
++        this.daysHigh = daysHigh;
++        this.yearLow = yearLow;
++        this.yearHigh = yearHigh;
++        this.name = name;
++        this.lastTradePriceOnly = lastTradePriceOnly;
++        this.change = change;
++        this.daysRange = daysRange;
++    }
++
++}
++
+Index: app/src/main/res/layout/activity_stock_info.xml
+IDEA additional info:
+Subsystem: com.intellij.openapi.diff.impl.patch.CharsetEP
+<+>UTF-8
+===================================================================
+--- app/src/main/res/layout/activity_stock_info.xml	(revision )
++++ app/src/main/res/layout/activity_stock_info.xml	(revision )
+@@ -0,0 +1,101 @@
++<?xml version="1.0" encoding="utf-8"?>
++<TableLayout xmlns:android="http://schemas.android.com/apk/res/android"
++    android:layout_width="match_parent"
++    android:layout_height="match_parent" >
++
++    <TableRow
++        android:id="@+id/tableRow1"
++        android:layout_width="match_parent"
++        android:layout_height="wrap_content" >
++
++        <TextView
++            android:id="@+id/companyNameTextView"
++            android:layout_width="wrap_content"
++            android:layout_height="wrap_content"
++            android:padding="@dimen/activity_horizontal_margin"
++            android:text="Medium Text"
++            android:textAppearance="?android:attr/textAppearanceMedium" />
++
++    </TableRow>
++
++    <TableRow
++        android:id="@+id/tableRow2"
++        android:layout_width="match_parent"
++        android:layout_height="wrap_content" >
++
++        <TextView
++            android:id="@+id/yearLowTextView"
++            android:layout_width="wrap_content"
++            android:layout_height="wrap_content"
++            android:padding="@dimen/activity_horizontal_margin"
++            android:text="@string/stock_year_low"
++            android:layout_weight="1" />
++
++        <TextView
++            android:id="@+id/yearHighTextView"
++            android:layout_width="wrap_content"
++            android:layout_height="wrap_content"
++            android:text="@string/stock_year_high"
++            android:layout_weight="1" />
++
++    </TableRow>
++
++    <TableRow
++        android:id="@+id/tableRow3"
++        android:layout_width="match_parent"
++        android:layout_height="wrap_content"
++        android:padding="@dimen/activity_horizontal_margin" >
++
++        <TextView
++            android:id="@+id/daysLowTextView"
++            android:layout_width="wrap_content"
++            android:layout_height="wrap_content"
++            android:text="@string/stock_days_low"
++            android:layout_weight="1" />
++
++        <TextView
++            android:id="@+id/daysHighTextView"
++            android:layout_width="wrap_content"
++            android:layout_height="wrap_content"
++            android:text="@string/stock_days_high"
++            android:layout_weight="1" />
++
++    </TableRow>
++
++    <TableRow
++        android:id="@+id/tableRow4"
++        android:layout_width="match_parent"
++        android:layout_height="wrap_content"
++        android:padding="@dimen/activity_horizontal_margin" >
++
++        <TextView
++            android:id="@+id/lastTradePriceOnlyTextView"
++            android:layout_width="wrap_content"
++            android:layout_height="wrap_content"
++            android:text="@string/last_trade_price_only"
++            android:layout_weight="1" />
++
++        <TextView
++            android:id="@+id/changeTextView"
++            android:layout_width="wrap_content"
++            android:layout_height="wrap_content"
++            android:text="@string/change"
++            android:layout_weight="1" />
++
++    </TableRow>
++
++    <TableRow
++        android:id="@+id/tableRow5"
++        android:layout_width="wrap_content"
++        android:layout_height="wrap_content"
++        android:padding="@dimen/activity_horizontal_margin" >
++
++        <TextView
++            android:id="@+id/daysRangeTextView"
++            android:layout_width="wrap_content"
++            android:layout_height="wrap_content"
++            android:text="@string/days_range" />
++
++    </TableRow>
++
++</TableLayout>
+\ No newline at end of file
+Index: .idea/workspace.xml
+IDEA additional info:
+Subsystem: com.intellij.openapi.diff.impl.patch.CharsetEP
+<+>UTF-8
+===================================================================
+--- .idea/workspace.xml	(revision 235d95352a22bb63a463411b24c3b41847f5dff5)
++++ .idea/workspace.xml	(revision )
+@@ -1,8 +1,31 @@
+ <?xml version="1.0" encoding="UTF-8"?>
+ <project version="4">
++  <component name="AndroidLayouts">
++    <shared>
++      <config />
++    </shared>
++  </component>
++  <component name="AndroidLogFilters">
++    <option name="TOOL_WINDOW_CONFIGURED_FILTER" value="No Filters" />
++  </component>
+   <component name="ChangeListManager">
+     <list default="true" id="9614fa55-e345-4bd0-b188-6bae9e2f4e97" name="Default" comment="">
+-      <change type="NEW" beforePath="" afterPath="$PROJECT_DIR$/AITP-Stocks.iml" />
++      <change type="NEW" beforePath="" afterPath="$PROJECT_DIR$/app/src/main/java/com/mstc/student/aitpstockideas/GetStockInfo.java" />
++      <change type="NEW" beforePath="" afterPath="$PROJECT_DIR$/app/src/main/java/com/mstc/student/aitpstockideas/StockInfo.java" />
++      <change type="NEW" beforePath="" afterPath="$PROJECT_DIR$/app/src/main/res/layout/activity_stock_info.xml" />
++      <change type="NEW" beforePath="" afterPath="$PROJECT_DIR$/.idea/libraries/org_apache_http_legacy_android_23.xml" />
++      <change type="MODIFICATION" beforePath="$PROJECT_DIR$/.gradle/2.8/taskArtifacts/cache.properties.lock" afterPath="$PROJECT_DIR$/.gradle/2.8/taskArtifacts/cache.properties.lock" />
++      <change type="MODIFICATION" beforePath="$PROJECT_DIR$/.gradle/2.8/taskArtifacts/fileHashes.bin" afterPath="$PROJECT_DIR$/.gradle/2.8/taskArtifacts/fileHashes.bin" />
++      <change type="MODIFICATION" beforePath="$PROJECT_DIR$/.gradle/2.8/taskArtifacts/fileSnapshots.bin" afterPath="$PROJECT_DIR$/.gradle/2.8/taskArtifacts/fileSnapshots.bin" />
++      <change type="MODIFICATION" beforePath="$PROJECT_DIR$/.gradle/2.8/taskArtifacts/outputFileStates.bin" afterPath="$PROJECT_DIR$/.gradle/2.8/taskArtifacts/outputFileStates.bin" />
++      <change type="MODIFICATION" beforePath="$PROJECT_DIR$/.gradle/2.8/taskArtifacts/taskArtifacts.bin" afterPath="$PROJECT_DIR$/.gradle/2.8/taskArtifacts/taskArtifacts.bin" />
++      <change type="MODIFICATION" beforePath="$PROJECT_DIR$/app/src/main/AndroidManifest.xml" afterPath="$PROJECT_DIR$/app/src/main/AndroidManifest.xml" />
++      <change type="MODIFICATION" beforePath="$PROJECT_DIR$/app/src/main/java/com/mstc/student/aitpstockideas/NewStock.java" afterPath="$PROJECT_DIR$/app/src/main/java/com/mstc/student/aitpstockideas/NewStock.java" />
++      <change type="MODIFICATION" beforePath="$PROJECT_DIR$/app/app.iml" afterPath="$PROJECT_DIR$/app/app.iml" />
++      <change type="MODIFICATION" beforePath="$PROJECT_DIR$/app/build.gradle" afterPath="$PROJECT_DIR$/app/build.gradle" />
++      <change type="MODIFICATION" beforePath="$PROJECT_DIR$/.idea/misc.xml" afterPath="$PROJECT_DIR$/.idea/misc.xml" />
++      <change type="MODIFICATION" beforePath="$PROJECT_DIR$/app/src/main/res/layout/new_stock_layout.xml" afterPath="$PROJECT_DIR$/app/src/main/res/layout/new_stock_layout.xml" />
++      <change type="MODIFICATION" beforePath="$PROJECT_DIR$/app/src/main/res/values/strings.xml" afterPath="$PROJECT_DIR$/app/src/main/res/values/strings.xml" />
+       <change type="MODIFICATION" beforePath="$PROJECT_DIR$/.idea/workspace.xml" afterPath="$PROJECT_DIR$/.idea/workspace.xml" />
+     </list>
+     <ignored path="AITP-Stocks.iws" />
+@@ -29,7 +52,88 @@
+   <component name="FavoritesManager">
+     <favorites_list name="AITP-Stocks" />
+   </component>
++  <component name="FileEditorManager">
++    <leaf>
++      <file leaf-file-name="StockInfo.java" pinned="false" current-in-tab="false">
++        <entry file="file://$PROJECT_DIR$/app/src/main/java/com/mstc/student/aitpstockideas/StockInfo.java">
++          <provider selected="true" editor-type-id="text-editor">
++            <state vertical-scroll-proportion="0.0">
++              <caret line="5" column="13" selection-start-line="5" selection-start-column="13" selection-end-line="5" selection-end-column="13" />
++              <folding />
++            </state>
++          </provider>
++        </entry>
++      </file>
++      <file leaf-file-name="new_stock_layout.xml" pinned="false" current-in-tab="false">
++        <entry file="file://$PROJECT_DIR$/app/src/main/res/layout/new_stock_layout.xml">
++          <provider editor-type-id="android-designer">
++            <state />
++          </provider>
++          <provider selected="true" editor-type-id="text-editor">
++            <state vertical-scroll-proportion="0.0">
++              <caret line="34" column="55" selection-start-line="34" selection-start-column="33" selection-end-line="34" selection-end-column="55" />
++              <folding />
++            </state>
++          </provider>
++        </entry>
++      </file>
++      <file leaf-file-name="NewStock.java" pinned="false" current-in-tab="true">
++        <entry file="file://$PROJECT_DIR$/app/src/main/java/com/mstc/student/aitpstockideas/NewStock.java">
++          <provider selected="true" editor-type-id="text-editor">
++            <state vertical-scroll-proportion="0.0">
++              <caret line="116" column="8" selection-start-line="116" selection-start-column="8" selection-end-line="116" selection-end-column="8" />
++              <folding />
++            </state>
++          </provider>
++        </entry>
++      </file>
++      <file leaf-file-name="AsyncTask.java" pinned="false" current-in-tab="false">
++        <entry file="file://$USER_HOME$/AppData/Local/Android/sdk/sources/android-23/android/os/AsyncTask.java">
++          <provider selected="true" editor-type-id="text-editor">
++            <state vertical-scroll-proportion="0.0">
++              <caret line="550" column="0" selection-start-line="550" selection-start-column="0" selection-end-line="550" selection-end-column="0" />
++              <folding />
++            </state>
++          </provider>
++        </entry>
++      </file>
++      <file leaf-file-name="activity_stock_info.xml" pinned="false" current-in-tab="false">
++        <entry file="file://$PROJECT_DIR$/app/src/main/res/layout/activity_stock_info.xml">
++          <provider selected="true" editor-type-id="android-designer">
++            <state />
++          </provider>
++          <provider editor-type-id="text-editor">
++            <state vertical-scroll-proportion="0.0">
++              <caret line="0" column="0" selection-start-line="0" selection-start-column="0" selection-end-line="0" selection-end-column="0" />
++              <folding />
++            </state>
++          </provider>
++        </entry>
++      </file>
++      <file leaf-file-name="build.gradle" pinned="false" current-in-tab="false">
++        <entry file="file://$PROJECT_DIR$/app/build.gradle">
++          <provider selected="true" editor-type-id="text-editor">
++            <state vertical-scroll-proportion="0.0">
++              <caret line="27" column="1" selection-start-line="27" selection-start-column="1" selection-end-line="27" selection-end-column="1" />
++              <folding />
++            </state>
++          </provider>
++        </entry>
++      </file>
++      <file leaf-file-name="AndroidManifest.xml" pinned="false" current-in-tab="false">
++        <entry file="file://$PROJECT_DIR$/app/src/main/AndroidManifest.xml">
++          <provider selected="true" editor-type-id="text-editor">
++            <state vertical-scroll-proportion="0.0">
++              <caret line="28" column="4" selection-start-line="28" selection-start-column="4" selection-end-line="28" selection-end-column="4" />
++              <folding />
++            </state>
++          </provider>
++        </entry>
++      </file>
++    </leaf>
++  </component>
+   <component name="Git.Settings">
++    <option name="ROOT_SYNC" value="DONT_SYNC" />
+     <option name="RECENT_GIT_ROOT_PATH" value="$PROJECT_DIR$" />
+   </component>
+   <component name="GithubProjectSettings">
+@@ -1231,7 +1335,7 @@
+     </option>
+     <option name="modificationStamps">
+       <map>
+-        <entry key="C:\Users\Ben\Documents\GitHub\AITP-Stocks" value="4373973313353" />
++        <entry key="C:\Users\Ben\Documents\GitHub\AITP-Stocks" value="4374081095101" />
+       </map>
+     </option>
+     <option name="projectBuildClasspath">
+@@ -1589,14 +1693,28 @@
+       <projects_view />
+     </option>
+   </component>
++  <component name="IdeDocumentHistory">
++    <option name="CHANGED_PATHS">
++      <list>
++        <option value="$PROJECT_DIR$/app/src/main/java/com/mstc/student/aitpstockideas/StockInfo.java" />
++        <option value="$PROJECT_DIR$/app/src/main/res/values/strings.xml" />
++        <option value="$PROJECT_DIR$/app/src/main/AndroidManifest.xml" />
++        <option value="$PROJECT_DIR$/app/build.gradle" />
++        <option value="$PROJECT_DIR$/app/src/main/java/com/mstc/student/aitpstockideas/StockInfoActivity.java" />
++        <option value="$PROJECT_DIR$/app/src/main/java/com/mstc/student/aitpstockideas/GetStockInfo.java" />
++        <option value="$PROJECT_DIR$/app/src/main/res/layout/new_stock_layout.xml" />
++        <option value="$PROJECT_DIR$/app/src/main/java/com/mstc/student/aitpstockideas/NewStock.java" />
++      </list>
++    </option>
++  </component>
+   <component name="NamedScopeManager">
+     <order />
+   </component>
+   <component name="ProjectFrameBounds">
+-    <option name="x" value="1912" />
++    <option name="x" value="-8" />
+     <option name="y" value="-8" />
+     <option name="width" value="1936" />
+-    <option name="height" value="1056" />
++    <option name="height" value="1176" />
+   </component>
+   <component name="ProjectLevelVcsManager" settingsEditedManually="true">
+     <OptionsSetting value="true" id="Add" />
+@@ -1621,9 +1739,7 @@
+       <sortByType />
+     </navigator>
+     <panes>
+-      <pane id="PackagesPane" />
+       <pane id="ProjectPane" />
+-      <pane id="Scratches" />
+       <pane id="AndroidView">
+         <subPane>
+           <PATH>
+@@ -1631,6 +1747,10 @@
+               <option name="myItemId" value="AITP-Stocks" />
+               <option name="myItemType" value="com.android.tools.idea.navigator.nodes.AndroidViewProjectNode" />
+             </PATH_ELEMENT>
++            <PATH_ELEMENT>
++              <option name="myItemId" value="Gradle Scripts" />
++              <option name="myItemType" value="com.android.tools.idea.navigator.nodes.AndroidBuildScriptsGroupNode" />
++            </PATH_ELEMENT>
+           </PATH>
+           <PATH>
+             <PATH_ELEMENT>
+@@ -1676,15 +1796,28 @@
+           </PATH>
+         </subPane>
+       </pane>
++      <pane id="PackagesPane" />
++      <pane id="Scratches" />
+       <pane id="Scope" />
+     </panes>
+   </component>
+   <component name="PropertiesComponent">
+-    <property name="settings.editor.selected.configurable" value="android.sdk-updates" />
++    <property name="settings.editor.selected.configurable" value="vcs.Git" />
+     <property name="settings.editor.splitter.proportion" value="0.2" />
+     <property name="android.sdk.path" value="$USER_HOME$/AppData/Local/Android/sdk" />
+     <property name="recentsLimit" value="5" />
++    <property name="last_opened_file_path" value="$USER_HOME$/Desktop/StockQuotes" />
++    <property name="ANDROID_EXTENDED_DEVICE_CHOOSER_SERIALS" value="emulator-5554" />
++    <property name="ANDROID_EXTENDED_DEVICE_CHOOSER_AVD" value="Nexus_5_API_23_x86" />
+   </component>
++  <component name="RecentsManager">
++    <key name="CopyFile.RECENT_KEYS">
++      <recent name="C:\Users\Ben\Documents\GitHub\AITP-Stocks\app\src\main\res\layout" />
++    </key>
++    <key name="CopyClassDialog.RECENTS_KEY">
++      <recent name="com.mstc.student.aitpstockideas" />
++    </key>
++  </component>
+   <component name="RunManager" selected="Android Application.app">
+     <configuration default="true" type="AndroidRunConfigurationType" factoryName="Android Application">
+       <module name="" />
+@@ -1707,6 +1840,26 @@
+       <option name="ACTIVITY_CLASS" value="" />
+       <method />
+     </configuration>
++    <configuration default="true" type="AndroidTestRunConfigurationType" factoryName="Android Tests">
++      <module name="" />
++      <option name="TESTING_TYPE" value="0" />
++      <option name="INSTRUMENTATION_RUNNER_CLASS" value="" />
++      <option name="METHOD_NAME" value="" />
++      <option name="CLASS_NAME" value="" />
++      <option name="PACKAGE_NAME" value="" />
++      <option name="EXTRA_OPTIONS" value="" />
++      <option name="TARGET_SELECTION_MODE" value="SHOW_DIALOG" />
++      <option name="PREFERRED_AVD" value="" />
++      <option name="CLEAR_LOGCAT" value="false" />
++      <option name="SHOW_LOGCAT_AUTOMATICALLY" value="true" />
++      <option name="SKIP_NOOP_APK_INSTALLATIONS" value="true" />
++      <option name="FORCE_STOP_RUNNING_APP" value="true" />
++      <option name="USE_LAST_SELECTED_DEVICE" value="false" />
++      <option name="PREFERRED_AVD" value="" />
++      <option name="SELECTED_CLOUD_MATRIX_CONFIGURATION_ID" value="-1" />
++      <option name="SELECTED_CLOUD_MATRIX_PROJECT_ID" value="" />
++      <method />
++    </configuration>
+     <configuration default="true" type="Application" factoryName="Application">
+       <extension name="coverage" enabled="false" merge="false" sample_coverage="true" runner="idea" />
+       <option name="MAIN_CLASS_NAME" />
+@@ -1746,6 +1899,11 @@
+         <option name="Android.Gradle.BeforeRunTask" enabled="true" />
+       </method>
+     </configuration>
++    <configuration default="true" type="JarApplication" factoryName="JAR Application">
++      <extension name="coverage" enabled="false" merge="false" sample_coverage="true" runner="idea" />
++      <envs />
++      <method />
++    </configuration>
+     <configuration default="true" type="Remote" factoryName="Remote">
+       <option name="USE_SOCKET_TRANSPORT" value="true" />
+       <option name="SERVER_MODE" value="false" />
+@@ -1836,43 +1994,82 @@
+       <option name="project" value="LOCAL" />
+       <updated>1458011145510</updated>
+     </task>
+-    <option name="localTasksCounter" value="2" />
++    <task id="LOCAL-00002" summary="First build in Android Studio&#10;&#10;Deleted LocationAdapter">
++      <created>1458011260191</created>
++      <option name="number" value="00002" />
++      <option name="project" value="LOCAL" />
++      <updated>1458011260191</updated>
++    </task>
++    <option name="localTasksCounter" value="3" />
+     <servers />
+   </component>
+   <component name="ToolWindowManager">
+-    <frame x="1912" y="-8" width="1936" height="1056" extended-state="6" />
++    <frame x="-8" y="-8" width="1936" height="1176" extended-state="6" />
+     <editor active="false" />
+     <layout>
+       <window_info id="TODO" active="false" anchor="bottom" auto_hide="false" internal_type="DOCKED" type="DOCKED" visible="false" weight="0.33" sideWeight="0.5" order="6" side_tool="false" content_ui="tabs" />
+-      <window_info id="Messages" active="false" anchor="bottom" auto_hide="false" internal_type="DOCKED" type="DOCKED" visible="false" weight="0.33" sideWeight="0.5" order="-1" side_tool="false" content_ui="tabs" />
+-      <window_info id="Palette&#9;" active="false" anchor="left" auto_hide="false" internal_type="DOCKED" type="DOCKED" visible="false" weight="0.33" sideWeight="0.5" order="-1" side_tool="false" content_ui="tabs" />
+-      <window_info id="Build Variants" active="false" anchor="left" auto_hide="false" internal_type="DOCKED" type="DOCKED" visible="false" weight="0.33" sideWeight="0.5" order="-1" side_tool="true" content_ui="tabs" />
+-      <window_info id="Capture Analysis" active="false" anchor="right" auto_hide="false" internal_type="DOCKED" type="DOCKED" visible="false" weight="0.33" sideWeight="0.5" order="-1" side_tool="false" content_ui="tabs" />
+-      <window_info id="Event Log" active="true" anchor="bottom" auto_hide="false" internal_type="DOCKED" type="DOCKED" visible="true" weight="0.32925472" sideWeight="0.5063966" order="-1" side_tool="true" content_ui="tabs" />
+-      <window_info id="Application Servers" active="false" anchor="bottom" auto_hide="false" internal_type="DOCKED" type="DOCKED" visible="false" weight="0.33" sideWeight="0.5" order="-1" side_tool="false" content_ui="tabs" />
+-      <window_info id="Maven Projects" active="false" anchor="right" auto_hide="false" internal_type="DOCKED" type="DOCKED" visible="false" weight="0.33" sideWeight="0.5" order="-1" side_tool="false" content_ui="tabs" />
+-      <window_info id="Android Monitor" active="false" anchor="bottom" auto_hide="false" internal_type="DOCKED" type="DOCKED" visible="false" weight="0.33" sideWeight="0.5" order="-1" side_tool="false" content_ui="tabs" />
+-      <window_info id="Version Control" active="false" anchor="bottom" auto_hide="false" internal_type="DOCKED" type="DOCKED" visible="false" weight="0.32925472" sideWeight="0.4936034" order="-1" side_tool="false" content_ui="tabs" />
+-      <window_info id="Run" active="false" anchor="bottom" auto_hide="false" internal_type="DOCKED" type="DOCKED" visible="false" weight="0.33" sideWeight="0.5" order="2" side_tool="false" content_ui="tabs" />
+-      <window_info id="Terminal" active="false" anchor="bottom" auto_hide="false" internal_type="DOCKED" type="DOCKED" visible="false" weight="0.33" sideWeight="0.5" order="-1" side_tool="false" content_ui="tabs" />
+-      <window_info id="Captures" active="false" anchor="left" auto_hide="false" internal_type="DOCKED" type="DOCKED" visible="false" weight="0.33" sideWeight="0.5" order="-1" side_tool="false" content_ui="tabs" />
+-      <window_info id="Capture Tool" active="false" anchor="left" auto_hide="false" internal_type="DOCKED" type="DOCKED" visible="false" weight="0.33" sideWeight="0.5" order="-1" side_tool="false" content_ui="tabs" />
+-      <window_info id="Gradle Console" active="false" anchor="bottom" auto_hide="false" internal_type="DOCKED" type="DOCKED" visible="false" weight="0.33" sideWeight="0.5" order="-1" side_tool="true" content_ui="tabs" />
+-      <window_info id="Designer" active="false" anchor="right" auto_hide="false" internal_type="DOCKED" type="DOCKED" visible="false" weight="0.33" sideWeight="0.5" order="-1" side_tool="false" content_ui="tabs" />
+-      <window_info id="Project" active="false" anchor="left" auto_hide="false" internal_type="DOCKED" type="DOCKED" visible="true" weight="0.25" sideWeight="0.5" order="0" side_tool="false" content_ui="combo" />
+-      <window_info id="Gradle" active="false" anchor="right" auto_hide="false" internal_type="DOCKED" type="DOCKED" visible="false" weight="0.33" sideWeight="0.5" order="-1" side_tool="false" content_ui="tabs" />
++      <window_info id="Messages" active="false" anchor="bottom" auto_hide="false" internal_type="DOCKED" type="DOCKED" visible="false" weight="0.32973504" sideWeight="0.4978678" order="7" side_tool="false" content_ui="tabs" />
++      <window_info id="Build Variants" active="false" anchor="left" auto_hide="false" internal_type="DOCKED" type="DOCKED" visible="false" weight="0.33" sideWeight="0.5" order="2" side_tool="true" content_ui="tabs" />
++      <window_info id="Palette&#9;" active="false" anchor="left" auto_hide="false" internal_type="DOCKED" type="DOCKED" visible="false" weight="0.33" sideWeight="0.5" order="2" side_tool="false" content_ui="tabs" />
++      <window_info id="Capture Analysis" active="false" anchor="right" auto_hide="false" internal_type="DOCKED" type="DOCKED" visible="false" weight="0.33" sideWeight="0.5" order="3" side_tool="false" content_ui="tabs" />
++      <window_info id="Event Log" active="false" anchor="bottom" auto_hide="false" internal_type="DOCKED" type="DOCKED" visible="false" weight="0.32973504" sideWeight="0.5021322" order="7" side_tool="true" content_ui="tabs" />
++      <window_info id="Application Servers" active="false" anchor="bottom" auto_hide="false" internal_type="DOCKED" type="DOCKED" visible="false" weight="0.33" sideWeight="0.5" order="7" side_tool="false" content_ui="tabs" />
++      <window_info id="Maven Projects" active="false" anchor="right" auto_hide="false" internal_type="DOCKED" type="DOCKED" visible="false" weight="0.33" sideWeight="0.5" order="3" side_tool="false" content_ui="tabs" />
++      <window_info id="Android Monitor" active="false" anchor="bottom" auto_hide="false" internal_type="DOCKED" type="DOCKED" visible="false" weight="0.32973504" sideWeight="0.5" order="7" side_tool="false" content_ui="tabs" />
++      <window_info id="Version Control" active="false" anchor="bottom" auto_hide="false" internal_type="DOCKED" type="DOCKED" visible="true" weight="0.32875368" sideWeight="0.4936034" order="7" side_tool="false" content_ui="tabs" />
++      <window_info id="Run" active="false" anchor="bottom" auto_hide="false" internal_type="DOCKED" type="DOCKED" visible="false" weight="0.32973504" sideWeight="0.5" order="2" side_tool="false" content_ui="tabs" />
++      <window_info id="Terminal" active="false" anchor="bottom" auto_hide="false" internal_type="DOCKED" type="DOCKED" visible="false" weight="0.33" sideWeight="0.5" order="7" side_tool="false" content_ui="tabs" />
++      <window_info id="Captures" active="false" anchor="left" auto_hide="false" internal_type="DOCKED" type="DOCKED" visible="false" weight="0.33" sideWeight="0.5" order="2" side_tool="false" content_ui="tabs" />
++      <window_info id="Capture Tool" active="false" anchor="left" auto_hide="false" internal_type="DOCKED" type="DOCKED" visible="false" weight="0.33" sideWeight="0.5" order="2" side_tool="false" content_ui="tabs" />
++      <window_info id="Gradle Console" active="false" anchor="bottom" auto_hide="false" internal_type="DOCKED" type="DOCKED" visible="false" weight="0.33" sideWeight="0.5" order="7" side_tool="true" content_ui="tabs" />
++      <window_info id="Designer" active="false" anchor="right" auto_hide="false" internal_type="DOCKED" type="DOCKED" visible="false" weight="0.33" sideWeight="0.5" order="3" side_tool="false" content_ui="tabs" />
++      <window_info id="Project" active="true" anchor="left" auto_hide="false" internal_type="DOCKED" type="DOCKED" visible="true" weight="0.25" sideWeight="0.5" order="0" side_tool="false" content_ui="combo" />
++      <window_info id="Gradle" active="false" anchor="right" auto_hide="false" internal_type="DOCKED" type="DOCKED" visible="false" weight="0.33" sideWeight="0.5" order="3" side_tool="false" content_ui="tabs" />
+       <window_info id="Structure" active="false" anchor="left" auto_hide="false" internal_type="DOCKED" type="DOCKED" visible="false" weight="0.25" sideWeight="0.5" order="1" side_tool="false" content_ui="tabs" />
+-      <window_info id="Favorites" active="false" anchor="left" auto_hide="false" internal_type="DOCKED" type="DOCKED" visible="false" weight="0.33" sideWeight="0.5" order="-1" side_tool="true" content_ui="tabs" />
+-      <window_info id="Android Model" active="false" anchor="right" auto_hide="false" internal_type="DOCKED" type="DOCKED" visible="false" weight="0.33" sideWeight="0.5" order="-1" side_tool="true" content_ui="tabs" />
+-      <window_info id="Debug" active="false" anchor="bottom" auto_hide="false" internal_type="DOCKED" type="DOCKED" visible="false" weight="0.4" sideWeight="0.5" order="3" side_tool="false" content_ui="tabs" />
++      <window_info id="Android Model" active="false" anchor="right" auto_hide="false" internal_type="DOCKED" type="DOCKED" visible="false" weight="0.33" sideWeight="0.5" order="3" side_tool="true" content_ui="tabs" />
++      <window_info id="Favorites" active="false" anchor="left" auto_hide="false" internal_type="DOCKED" type="DOCKED" visible="false" weight="0.33" sideWeight="0.5" order="2" side_tool="true" content_ui="tabs" />
++      <window_info id="Debug" active="false" anchor="bottom" auto_hide="false" internal_type="DOCKED" type="DOCKED" visible="false" weight="0.3994112" sideWeight="0.5" order="3" side_tool="false" content_ui="tabs" />
+       <window_info id="Cvs" active="false" anchor="bottom" auto_hide="false" internal_type="DOCKED" type="DOCKED" visible="false" weight="0.25" sideWeight="0.5" order="4" side_tool="false" content_ui="tabs" />
+-      <window_info id="Hierarchy" active="false" anchor="right" auto_hide="false" internal_type="DOCKED" type="DOCKED" visible="false" weight="0.25" sideWeight="0.5" order="2" side_tool="false" content_ui="combo" />
+       <window_info id="Message" active="false" anchor="bottom" auto_hide="false" internal_type="DOCKED" type="DOCKED" visible="false" weight="0.33" sideWeight="0.5" order="0" side_tool="false" content_ui="tabs" />
+       <window_info id="Commander" active="false" anchor="right" auto_hide="false" internal_type="SLIDING" type="SLIDING" visible="false" weight="0.4" sideWeight="0.5" order="0" side_tool="false" content_ui="tabs" />
+-      <window_info id="Find" active="false" anchor="bottom" auto_hide="false" internal_type="DOCKED" type="DOCKED" visible="false" weight="0.33" sideWeight="0.5" order="1" side_tool="false" content_ui="tabs" />
+-      <window_info id="Inspection" active="false" anchor="bottom" auto_hide="false" internal_type="DOCKED" type="DOCKED" visible="false" weight="0.4" sideWeight="0.5" order="5" side_tool="false" content_ui="tabs" />
++      <window_info id="Hierarchy" active="false" anchor="right" auto_hide="false" internal_type="DOCKED" type="DOCKED" visible="false" weight="0.25" sideWeight="0.5" order="2" side_tool="false" content_ui="combo" />
+       <window_info id="Ant Build" active="false" anchor="right" auto_hide="false" internal_type="DOCKED" type="DOCKED" visible="false" weight="0.25" sideWeight="0.5" order="1" side_tool="false" content_ui="tabs" />
++      <window_info id="Inspection" active="false" anchor="bottom" auto_hide="false" internal_type="DOCKED" type="DOCKED" visible="false" weight="0.4" sideWeight="0.5" order="5" side_tool="false" content_ui="tabs" />
++      <window_info id="Preview" active="false" anchor="right" auto_hide="false" internal_type="DOCKED" type="DOCKED" visible="false" weight="0.33" sideWeight="0.5" order="4" side_tool="false" content_ui="tabs" />
++      <window_info id="Find" active="false" anchor="bottom" auto_hide="false" internal_type="DOCKED" type="DOCKED" visible="false" weight="0.33" sideWeight="0.5" order="1" side_tool="false" content_ui="tabs" />
+     </layout>
++    <layout-to-restore>
++      <window_info id="Cvs" active="false" anchor="bottom" auto_hide="false" internal_type="DOCKED" type="DOCKED" visible="false" weight="0.25" sideWeight="0.5" order="4" side_tool="false" content_ui="tabs" />
++      <window_info id="Message" active="false" anchor="bottom" auto_hide="false" internal_type="DOCKED" type="DOCKED" visible="false" weight="0.33" sideWeight="0.5" order="0" side_tool="false" content_ui="tabs" />
++      <window_info id="Build Variants" active="false" anchor="left" auto_hide="false" internal_type="DOCKED" type="DOCKED" visible="false" weight="0.33" sideWeight="0.5" order="2" side_tool="true" content_ui="tabs" />
++      <window_info id="Commander" active="false" anchor="right" auto_hide="false" internal_type="SLIDING" type="SLIDING" visible="false" weight="0.4" sideWeight="0.5" order="1" side_tool="false" content_ui="tabs" />
++      <window_info id="Event Log" active="false" anchor="bottom" auto_hide="false" internal_type="DOCKED" type="DOCKED" visible="true" weight="0.32973504" sideWeight="0.5021322" order="7" side_tool="true" content_ui="tabs" />
++      <window_info id="Application Servers" active="false" anchor="bottom" auto_hide="false" internal_type="DOCKED" type="DOCKED" visible="false" weight="0.33" sideWeight="0.5" order="8" side_tool="false" content_ui="tabs" />
++      <window_info id="Maven Projects" active="false" anchor="right" auto_hide="false" internal_type="DOCKED" type="DOCKED" visible="false" weight="0.33" sideWeight="0.5" order="4" side_tool="false" content_ui="tabs" />
++      <window_info id="Android Monitor" active="false" anchor="bottom" auto_hide="false" internal_type="DOCKED" type="DOCKED" visible="false" weight="0.33" sideWeight="0.5" order="9" side_tool="false" content_ui="tabs" />
++      <window_info id="Capture Tool" active="false" anchor="left" auto_hide="false" internal_type="DOCKED" type="DOCKED" visible="false" weight="0.33" sideWeight="0.5" order="3" side_tool="false" content_ui="tabs" />
++      <window_info id="Designer" active="false" anchor="right" auto_hide="false" internal_type="DOCKED" type="DOCKED" visible="false" weight="0.33" sideWeight="0.5" order="5" side_tool="false" content_ui="tabs" />
++      <window_info id="Hierarchy" active="false" anchor="right" auto_hide="false" internal_type="DOCKED" type="DOCKED" visible="false" weight="0.25" sideWeight="0.5" order="3" side_tool="false" content_ui="combo" />
++      <window_info id="Structure" active="false" anchor="left" auto_hide="false" internal_type="DOCKED" type="DOCKED" visible="false" weight="0.25" sideWeight="0.5" order="1" side_tool="false" content_ui="tabs" />
++      <window_info id="Ant Build" active="false" anchor="right" auto_hide="false" internal_type="DOCKED" type="DOCKED" visible="false" weight="0.25" sideWeight="0.5" order="2" side_tool="false" content_ui="tabs" />
++      <window_info id="Android Model" active="false" anchor="right" auto_hide="false" internal_type="DOCKED" type="DOCKED" visible="false" weight="0.33" sideWeight="0.5" order="6" side_tool="true" content_ui="tabs" />
++      <window_info id="Debug" active="false" anchor="bottom" auto_hide="false" internal_type="DOCKED" type="DOCKED" visible="false" weight="0.4" sideWeight="0.5" order="3" side_tool="false" content_ui="tabs" />
++      <window_info id="TODO" active="false" anchor="bottom" auto_hide="false" internal_type="DOCKED" type="DOCKED" visible="false" weight="0.33" sideWeight="0.5" order="6" side_tool="false" content_ui="tabs" />
++      <window_info id="Messages" active="false" anchor="bottom" auto_hide="false" internal_type="DOCKED" type="DOCKED" visible="false" weight="0.32973504" sideWeight="0.4978678" order="10" side_tool="false" content_ui="tabs" />
++      <window_info id="Palette&#9;" active="false" anchor="left" auto_hide="false" internal_type="DOCKED" type="DOCKED" visible="false" weight="0.33" sideWeight="0.5" order="4" side_tool="false" content_ui="tabs" />
++      <window_info id="Capture Analysis" active="false" anchor="right" auto_hide="false" internal_type="DOCKED" type="DOCKED" visible="false" weight="0.33" sideWeight="0.5" order="7" side_tool="false" content_ui="tabs" />
++      <window_info id="Inspection" active="false" anchor="bottom" auto_hide="false" internal_type="DOCKED" type="DOCKED" visible="false" weight="0.4" sideWeight="0.5" order="5" side_tool="false" content_ui="tabs" />
++      <window_info id="Preview" active="false" anchor="right" auto_hide="false" internal_type="DOCKED" type="DOCKED" visible="false" weight="0.33" sideWeight="0.5" order="0" side_tool="false" content_ui="tabs" />
++      <window_info id="Version Control" active="false" anchor="bottom" auto_hide="false" internal_type="DOCKED" type="DOCKED" visible="false" weight="0.32925472" sideWeight="0.4936034" order="11" side_tool="false" content_ui="tabs" />
++      <window_info id="Run" active="false" anchor="bottom" auto_hide="false" internal_type="DOCKED" type="DOCKED" visible="false" weight="0.33" sideWeight="0.5" order="2" side_tool="false" content_ui="tabs" />
++      <window_info id="Terminal" active="false" anchor="bottom" auto_hide="false" internal_type="DOCKED" type="DOCKED" visible="false" weight="0.33" sideWeight="0.5" order="12" side_tool="false" content_ui="tabs" />
++      <window_info id="Captures" active="false" anchor="left" auto_hide="false" internal_type="DOCKED" type="DOCKED" visible="false" weight="0.33" sideWeight="0.5" order="5" side_tool="false" content_ui="tabs" />
++      <window_info id="Gradle Console" active="false" anchor="bottom" auto_hide="false" internal_type="DOCKED" type="DOCKED" visible="false" weight="0.33" sideWeight="0.5" order="13" side_tool="true" content_ui="tabs" />
++      <window_info id="Project" active="false" anchor="left" auto_hide="false" internal_type="DOCKED" type="DOCKED" visible="true" weight="0.25" sideWeight="0.5" order="0" side_tool="false" content_ui="combo" />
++      <window_info id="Find" active="false" anchor="bottom" auto_hide="false" internal_type="DOCKED" type="DOCKED" visible="false" weight="0.33" sideWeight="0.5" order="1" side_tool="false" content_ui="tabs" />
++      <window_info id="Gradle" active="false" anchor="right" auto_hide="false" internal_type="DOCKED" type="DOCKED" visible="false" weight="0.33" sideWeight="0.5" order="8" side_tool="false" content_ui="tabs" />
++      <window_info id="Favorites" active="false" anchor="left" auto_hide="false" internal_type="DOCKED" type="DOCKED" visible="false" weight="0.33" sideWeight="0.5" order="6" side_tool="true" content_ui="tabs" />
++    </layout-to-restore>
+   </component>
+   <component name="VcsContentAnnotationSettings">
+     <option name="myLimit" value="2678400000" />
+@@ -1882,7 +2079,159 @@
+     <option name="LAST_COMMIT_MESSAGE" value="First build in Android Studio&#10;&#10;Deleted LocationAdapter" />
+   </component>
+   <component name="XDebuggerManager">
+-    <breakpoint-manager />
++    <breakpoint-manager>
++      <option name="time" value="2" />
++    </breakpoint-manager>
+     <watches-manager />
++  </component>
++  <component name="editorHistoryManager">
++    <entry file="file://$PROJECT_DIR$/app/src/main/java/com/mstc/student/aitpstockideas/StockInfo.java">
++      <provider selected="true" editor-type-id="text-editor">
++        <state vertical-scroll-proportion="0.0">
++          <caret line="5" column="13" selection-start-line="5" selection-start-column="13" selection-end-line="5" selection-end-column="13" />
++          <folding />
++        </state>
++      </provider>
++    </entry>
++    <entry file="file://$PROJECT_DIR$/app/src/main/res/layout/new_stock_layout.xml">
++      <provider editor-type-id="android-designer">
++        <state />
++      </provider>
++      <provider selected="true" editor-type-id="text-editor">
++        <state vertical-scroll-proportion="0.0">
++          <caret line="34" column="55" selection-start-line="34" selection-start-column="33" selection-end-line="34" selection-end-column="55" />
++          <folding />
++        </state>
++      </provider>
++    </entry>
++    <entry file="file://$PROJECT_DIR$/app/src/main/java/com/mstc/student/aitpstockideas/NewStock.java">
++      <provider selected="true" editor-type-id="text-editor">
++        <state vertical-scroll-proportion="0.0">
++          <caret line="116" column="8" selection-start-line="116" selection-start-column="8" selection-end-line="116" selection-end-column="8" />
++          <folding />
++        </state>
++      </provider>
++    </entry>
++    <entry file="file://$PROJECT_DIR$/app/src/main/java/com/mstc/student/aitpstockideas/GetStockInfo.java">
++      <provider selected="true" editor-type-id="text-editor">
++        <state vertical-scroll-proportion="0.0">
++          <caret line="0" column="0" selection-start-line="0" selection-start-column="0" selection-end-line="0" selection-end-column="0" />
++          <folding />
++        </state>
++      </provider>
++    </entry>
++    <entry file="file://$USER_HOME$/AppData/Local/Android/sdk/sources/android-23/android/os/AsyncTask.java">
++      <provider selected="true" editor-type-id="text-editor">
++        <state vertical-scroll-proportion="0.0">
++          <caret line="550" column="0" selection-start-line="550" selection-start-column="0" selection-end-line="550" selection-end-column="0" />
++          <folding />
++        </state>
++      </provider>
++    </entry>
++    <entry file="file://$PROJECT_DIR$/app/src/main/res/layout/activity_stock_info.xml">
++      <provider selected="true" editor-type-id="android-designer">
++        <state />
++      </provider>
++      <provider editor-type-id="text-editor">
++        <state vertical-scroll-proportion="0.0">
++          <caret line="0" column="0" selection-start-line="0" selection-start-column="0" selection-end-line="0" selection-end-column="0" />
++          <folding />
++        </state>
++      </provider>
++    </entry>
++    <entry file="file://$PROJECT_DIR$/app/build.gradle">
++      <provider selected="true" editor-type-id="text-editor">
++        <state vertical-scroll-proportion="0.0">
++          <caret line="27" column="1" selection-start-line="27" selection-start-column="1" selection-end-line="27" selection-end-column="1" />
++          <folding />
++        </state>
++      </provider>
++    </entry>
++    <entry file="file://$PROJECT_DIR$/app/src/main/AndroidManifest.xml">
++      <provider selected="true" editor-type-id="text-editor">
++        <state vertical-scroll-proportion="0.0">
++          <caret line="28" column="4" selection-start-line="28" selection-start-column="4" selection-end-line="28" selection-end-column="4" />
++          <folding />
++        </state>
++      </provider>
++    </entry>
++    <entry file="file://$PROJECT_DIR$/app/src/main/res/values/strings.xml">
++      <provider selected="true" editor-type-id="text-editor">
++        <state vertical-scroll-proportion="-1.2592592">
++          <caret line="2" column="0" selection-start-line="2" selection-start-column="0" selection-end-line="2" selection-end-column="0" />
++          <folding />
++        </state>
++      </provider>
++    </entry>
++    <entry file="file://$PROJECT_DIR$/app/src/main/AndroidManifest.xml">
++      <provider selected="true" editor-type-id="text-editor">
++        <state vertical-scroll-proportion="0.0">
++          <caret line="28" column="4" selection-start-line="28" selection-start-column="4" selection-end-line="28" selection-end-column="4" />
++          <folding />
++        </state>
++      </provider>
++    </entry>
++    <entry file="file://$PROJECT_DIR$/app/build.gradle">
++      <provider selected="true" editor-type-id="text-editor">
++        <state vertical-scroll-proportion="0.0">
++          <caret line="27" column="1" selection-start-line="27" selection-start-column="1" selection-end-line="27" selection-end-column="1" />
++          <folding />
++        </state>
++      </provider>
++    </entry>
++    <entry file="file://$PROJECT_DIR$/app/src/main/res/layout/activity_stock_info.xml">
++      <provider selected="true" editor-type-id="android-designer">
++        <state />
++      </provider>
++      <provider editor-type-id="text-editor">
++        <state vertical-scroll-proportion="0.0">
++          <caret line="0" column="0" selection-start-line="0" selection-start-column="0" selection-end-line="0" selection-end-column="0" />
++          <folding />
++        </state>
++      </provider>
++    </entry>
++    <entry file="file://$PROJECT_DIR$/app/src/main/java/com/mstc/student/aitpstockideas/StockInfo.java">
++      <provider selected="true" editor-type-id="text-editor">
++        <state vertical-scroll-proportion="0.0">
++          <caret line="5" column="13" selection-start-line="5" selection-start-column="13" selection-end-line="5" selection-end-column="13" />
++          <folding />
++        </state>
++      </provider>
++    </entry>
++    <entry file="file://$PROJECT_DIR$/app/src/main/res/layout/new_stock_layout.xml">
++      <provider editor-type-id="android-designer">
++        <state />
++      </provider>
++      <provider selected="true" editor-type-id="text-editor">
++        <state vertical-scroll-proportion="0.0">
++          <caret line="34" column="55" selection-start-line="34" selection-start-column="33" selection-end-line="34" selection-end-column="55" />
++          <folding />
++        </state>
++      </provider>
++    </entry>
++    <entry file="file://$USER_HOME$/AppData/Local/Android/sdk/sources/android-23/android/os/AsyncTask.java">
++      <provider selected="true" editor-type-id="text-editor">
++        <state vertical-scroll-proportion="0.0">
++          <caret line="550" column="0" selection-start-line="550" selection-start-column="0" selection-end-line="550" selection-end-column="0" />
++          <folding />
++        </state>
++      </provider>
++    </entry>
++    <entry file="file://$PROJECT_DIR$/app/src/main/java/com/mstc/student/aitpstockideas/GetStockInfo.java">
++      <provider selected="true" editor-type-id="text-editor">
++        <state vertical-scroll-proportion="0.20763358">
++          <caret line="35" column="0" selection-start-line="35" selection-start-column="0" selection-end-line="388" selection-end-column="9" />
++          <folding />
++        </state>
++      </provider>
++    </entry>
++    <entry file="file://$PROJECT_DIR$/app/src/main/java/com/mstc/student/aitpstockideas/NewStock.java">
++      <provider selected="true" editor-type-id="text-editor">
++        <state vertical-scroll-proportion="0.0">
++          <caret line="116" column="8" selection-start-line="116" selection-start-column="8" selection-end-line="116" selection-end-column="8" />
++          <folding />
++        </state>
++      </provider>
++    </entry>
+   </component>
+ </project>
+\ No newline at end of file
