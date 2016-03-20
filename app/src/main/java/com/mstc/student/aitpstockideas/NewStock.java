@@ -29,13 +29,14 @@ import java.util.Calendar;
 public class NewStock extends Activity {
     private LocationManager locationManager;
     private String provider;
-    String gpsLocation;
-    String stockSymbol;
+    String stockSymbol, message;
     Calendar currentDateTime;
     double startingPrice;
     TextView longitudeTV, latitudeTV, currentDateTV, startingPriceTV, currentTimeTV;
     EditText stockSymbolET;
     Button backButton, addStockButton, lookupButton;
+    double lat=0.0, lng=0.0;
+    String currentDateTimeFormated, latString, lngString;
 
     public final static String STOCK_SYMBOL = "STOCK_SYMBOL";
 
@@ -74,27 +75,38 @@ public class NewStock extends Activity {
     @Override
     protected void onActivityResult(int requestCode, int resultCode, Intent data) {
         super.onActivityResult(requestCode, resultCode, data);
-        if(requestCode==2)
-        {
-            String message=data.getStringExtra("MESSAGE");
+        if (requestCode == 2) {
+            message = data.getStringExtra("MESSAGE");
+            startingPrice = Double.parseDouble(message);
             startingPriceTV.setText(message);
         }
     }
+
     //************************************************************************************************************
     //This method gets the gps coordinates and sets the longitude and latitude textviews
     //************************************************************************************************************
-    public void getLocation(){
+    public void getLocation() {
         locationManager = (LocationManager) getSystemService(Context.LOCATION_SERVICE);
         // Define the criteria how to select the location provider -> use
 
         Criteria criteria = new Criteria();
         provider = locationManager.getBestProvider(criteria, false);
+        if (ActivityCompat.checkSelfPermission(this, Manifest.permission.ACCESS_FINE_LOCATION) != PackageManager.PERMISSION_GRANTED && ActivityCompat.checkSelfPermission(this, Manifest.permission.ACCESS_COARSE_LOCATION) != PackageManager.PERMISSION_GRANTED) {
+            // TODO: Consider calling
+            //    ActivityCompat#requestPermissions
+            // here to request the missing permissions, and then overriding
+            //   public void onRequestPermissionsResult(int requestCode, String[] permissions,
+            //                                          int[] grantResults)
+            // to handle the case where the user grants the permission. See the documentation
+            // for ActivityCompat#requestPermissions for more details.
+            return;
+        }
         Location location = locationManager.getLastKnownLocation(provider);
         if (location != null || provider != null) {
-             double lat = (double) (location.getLatitude());
-            double lng = (double) (location.getLongitude());
-            String latString = Double.toString(lat);
-            String lngString = Double.toString(lng);
+            lat =  (location.getLatitude());
+            lng = (location.getLongitude());
+            latString = Double.toString(lat);
+            lngString = Double.toString(lng);
             latitudeTV.setText(latString);
             //String lngString = String.format("%4f",lng);
             longitudeTV.setText(lngString);
@@ -110,10 +122,11 @@ public class NewStock extends Activity {
     public void getDateTime(){
         SimpleDateFormat sdfDate= new SimpleDateFormat("MM-dd-yyyy");
         SimpleDateFormat sdfTime= new SimpleDateFormat("hh:mm:ss");
+        SimpleDateFormat sdfDateTime = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss");
         currentDateTime = Calendar.getInstance();
         String currentDateFormated = sdfDate.format(currentDateTime.getTime());
         String currentTimeFormated = sdfTime.format(currentDateTime.getTime());
-
+        currentDateTimeFormated = sdfDateTime.format(currentDateTime.getTime());
         currentTimeTV.setText(currentTimeFormated);
         currentDateTV.setText(currentDateFormated);
 
@@ -124,7 +137,7 @@ public class NewStock extends Activity {
     //**********************************************************************************
     public void lookupStockInfo(View view) {
 
-        String stockSymbol = stockSymbolET.getText().toString();
+        stockSymbol = stockSymbolET.getText().toString();
 
         // An intent is an object that can be used to start another activity
         Intent intent = new Intent(NewStock.this, StockInfoActivity.class);
@@ -141,5 +154,41 @@ public class NewStock extends Activity {
     //**********************************************************************************
     public void backButtonClicked(View view) {
         finish();
+    }
+
+    //********************************************************************************
+    //this is the onclick method for the add stock button it is implemented via xml
+    //****************************************************************************
+    public void addStockButtonClicked(View v) {
+        MyDBHandler dbHandler = new MyDBHandler(v.getContext(), null, null, 1);
+
+        if(message == null || message.equals("")) {
+            Toast.makeText(getApplicationContext(), "Insert All The Fields message " + message + " latString " + latString +"lngString " + lngString + "StartingPrice " + startingPrice, Toast.LENGTH_LONG).show();
+            return;
+        } else {
+            startingPrice = Float.parseFloat(message);
+        }
+        /*if(latString == null || latString.equals("")) {
+            Toast.makeText(getApplicationContext(), "Insert All The Fields message " + message + " latString " + latString +"lngString " + lngString + "StartingPrice " + startingPrice, Toast.LENGTH_LONG).show();
+            //Toast.makeText(getApplicationContext(), "Insert All The Fields", Toast.LENGTH_LONG).show();
+            return;
+        } else {
+            lat = Float.parseFloat(latString);
+        }
+        if (lngString == null || lngString.equals("")){
+            Toast.makeText(getApplicationContext(), "Insert All The Fields message " + message + " latString " + latString +"lngString " + lngString + "StartingPrice " + startingPrice, Toast.LENGTH_LONG).show();
+            return;
+        } else {
+            lng = Float.parseFloat(lngString);
+        }
+        */
+        lat = 0.0;
+        lng = 0.0;
+        StockIdea idea = new StockIdea(currentDateTimeFormated ,lat, lng, startingPrice, stockSymbol);
+        dbHandler.addStockIdea(idea);
+
+
+        stockSymbolET.setText("");
+        startingPriceTV.setText("");
     }
 }

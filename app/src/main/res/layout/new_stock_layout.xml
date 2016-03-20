@@ -162,7 +162,8 @@
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:text="Add Stock"
-            android:id="@+id/addStockButton" />
+            android:id="@+id/addStockButton"
+            android:onClick="addStockButtonClicked"/>
     </LinearLayout>
 
 </LinearLayout>
