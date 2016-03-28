@@ -80,6 +80,7 @@ public class NewStock extends Activity {
         addStockButton = (Button) findViewById(R.id.addStockButton);
         lookupButton = (Button) findViewById(R.id.lookupButton);
         cameraButton = (Button) findViewById(R.id.photoButton);
+        ideaImage = (ImageView) findViewById(R.id.addStockIV);
 
         //clear the textviews
         latitudeTV.setText("");
