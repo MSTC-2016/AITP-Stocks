@@ -25,6 +25,7 @@ public class MyDBHandler extends SQLiteOpenHelper {
     private static final String COLUMN_IDEA_LATITUDE = "idealatitude";
     private static final String COLUMN_IDEA_LONGITUDE = "idealongitude";
     private static final String COLUMN_IDEA_STARTING_PRICE = "ideastartingprice";
+    private static final String COLUMN_IDEA_IMAGE = "ideaimage";
 
 
 
@@ -39,7 +40,7 @@ public class MyDBHandler extends SQLiteOpenHelper {
     @Override
     public void onCreate(SQLiteDatabase db) {
         String CREATE_TOURNEYS_TABLE = "CREATE TABLE " + TABLE_IDEAS + "(" + COLUMN_ID + " INTEGER PRIMARY KEY," + COLUMN_IDEA_SYMBOL + " TEXT," + COLUMN_IDEA_DATE + " TEXT," +
-                COLUMN_IDEA_LATITUDE + " DECIMAL(7,8), " +  COLUMN_IDEA_LONGITUDE + " DECIMAL(7,8),"+ COLUMN_IDEA_STARTING_PRICE + " DECIMAL(8,2))";
+                COLUMN_IDEA_LATITUDE + " DECIMAL(7,8), " +  COLUMN_IDEA_LONGITUDE + " DECIMAL(7,8),"+ COLUMN_IDEA_STARTING_PRICE + " DECIMAL(8,2)," + COLUMN_IDEA_IMAGE + " TEXT)";
 
         db.execSQL(CREATE_TOURNEYS_TABLE);
 
@@ -58,6 +59,7 @@ public class MyDBHandler extends SQLiteOpenHelper {
             values.put(COLUMN_IDEA_LATITUDE, idea.getGPS_Lat());
             values.put(COLUMN_IDEA_LONGITUDE, idea.getGPS_Lon());
             values.put(COLUMN_IDEA_STARTING_PRICE, idea.get_startingPrice());
+            values.put(COLUMN_IDEA_IMAGE,idea.getImagePath());
 
             db = this.getWritableDatabase();
 
@@ -70,8 +72,8 @@ public class MyDBHandler extends SQLiteOpenHelper {
     //*****************************************************************************************************************************************************************
     //this method gets all ideas from the database
     //***************************************************************************************************************************************************************
-    public Cursor queueAllTournaments() {
-        String[] columns = new String[]{COLUMN_ID, COLUMN_IDEA_SYMBOL, COLUMN_IDEA_DATE, COLUMN_IDEA_LATITUDE, COLUMN_IDEA_LONGITUDE,COLUMN_IDEA_STARTING_PRICE};
+    public Cursor queueAllIdeas() {
+        String[] columns = new String[]{COLUMN_ID, COLUMN_IDEA_SYMBOL, COLUMN_IDEA_DATE, COLUMN_IDEA_LATITUDE, COLUMN_IDEA_LONGITUDE,COLUMN_IDEA_STARTING_PRICE, COLUMN_IDEA_IMAGE};
         db = this.getReadableDatabase();
         Cursor cursor = db.query(TABLE_IDEAS, columns,
         null, null, null, null, null);

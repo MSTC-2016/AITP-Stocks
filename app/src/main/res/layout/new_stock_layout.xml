@@ -146,7 +146,7 @@
     <LinearLayout
         android:orientation="horizontal"
         android:layout_width="wrap_content"
-        android:layout_height="match_parent"
+        android:layout_height="wrap_content"
         android:layout_gravity="center_horizontal"
         android:layout_marginTop="15dp">
 
@@ -164,6 +164,19 @@
             android:text="Add Stock"
             android:id="@+id/addStockButton"
             android:onClick="addStockButtonClicked"/>
+
+        <Button
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="Take Photo"
+            android:id="@+id/photoButton" />
     </LinearLayout>
+
+    <ImageView
+        android:contentDescription="Image From Camera"
+        android:layout_width="175dp"
+        android:layout_height="200dp"
+        android:minHeight="100dp"
+        android:id="@+id/addStockIV" />
 
 </LinearLayout>

@@ -37,14 +37,14 @@ public class ListIdeas extends Fragment {
 
         tournamentListView = (ListView)v.findViewById(R.id.ideaListView);
 
-                String[] tournamentColumns = new  String [] {"ideasymbol", "ideastartingprice"};
+                String[] tournamentColumns = new  String [] {"ideasymbol", "ideastartingprice", "ideaimage"};
 
-        int[]  arrayViewIDs = new int[]{R.id.ideaSymbolTextView, R.id.ideaStartingPriceTextView};
+        int[]  arrayViewIDs = new int[]{R.id.ideaSymbolTextView, R.id.ideaStartingPriceTextView, R.id.listviewIV};
 
 
 
         Cursor cursor;
-        cursor = listhandler.queueAllTournaments();
+        cursor = listhandler.queueAllIdeas();
         getActivity().startManagingCursor(cursor);
 
         SimpleCursorAdapter adapter = new SimpleCursorAdapter(getActivity(), R.layout.listview_layout, cursor,tournamentColumns,arrayViewIDs);

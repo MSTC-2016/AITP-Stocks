@@ -14,13 +14,15 @@ public class StockIdea {
     private double _GPS_Lon;
     private double _startingPrice;
     private String _symbol;
+    private String _imagePath;
 
-    public StockIdea(String dateTime, double GPS_Lat, double GPS_Lon, double startingPrice, String symbol) {
+    public StockIdea(String dateTime, double GPS_Lat, double GPS_Lon, double startingPrice, String symbol, String imagePath) {
         this._dateTime = dateTime;
         this._GPS_Lat = GPS_Lat;
         this._GPS_Lon = GPS_Lon;
         this._startingPrice = startingPrice;
         this._symbol = symbol;
+        this._imagePath = imagePath;
     }
 
     public String getDateTime() {
@@ -61,5 +63,13 @@ public class StockIdea {
 
     public void setSymbol(String symbol) {
         this._symbol = symbol;
+    }
+
+    public void setImagePath(String imagePath) {
+        this._imagePath = imagePath;
+    }
+
+    public String getImagePath() {
+        return this._imagePath;
     }
 }
